@@ -1,3 +1,5 @@
+//mod eval;
+
 mod beta {
     enum RuleExpression {
         Literal(Box<LiteralExpression>),
@@ -5,9 +7,9 @@ mod beta {
     }
 
     enum LiteralExpression {
-        Numeric(i32),
-        String(String),
-        Boolean(bool),
+        Num(i32),
+        Str(String),
+        Bool(bool),
     }
 
     struct OperatorExpression {
