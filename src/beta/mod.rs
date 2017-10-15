@@ -130,3 +130,64 @@ fn parse_expr(text: &str) -> RuleExpression {
 }
 
 mod eval;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::eval::*;
+    use super::eval::PrimitiveValue::*;
+    use super::eval::ExpressionValue::*;
+
+    #[test]
+    fn num_literal() {
+        let expr = parse_expr("228");
+        if let Single(Num(val)) = eval_expr(&expr) {
+            assert_eq!(val, 228);
+        } else {
+            panic!("Expected single number");
+        }
+    }
+
+    #[test]
+    fn str_literal() {
+        let expr = parse_expr("\"str\"");
+        if let Single(Str(s)) = eval_expr(&expr) {
+            assert_eq!(s, "str");
+        } else {
+            panic!("Expected single string");
+        }
+    }
+
+    #[test]
+    fn bool_literal() {
+        let expr = parse_expr("false");
+        if let Single(Bool(b)) = eval_expr(&expr) {
+            assert_eq!(b, false);
+        } else {
+            panic!("Expected single bool");
+        }
+    }
+
+    #[test]
+    fn list_operator() {
+        let expr = parse_expr("[1, 2]");
+        if let Repeated(lst) = eval_expr(&expr) {
+            let v: Vec<_> = lst.iter()
+                .map(|x| if let &Num(ref v) = x { *v } else { 0 })
+                .collect();
+            assert_eq!(v, vec![1, 2]);
+        } else {
+            panic!("Expected repeated");
+        }
+    }
+
+    #[test]
+    fn nested_operators() {
+        let expr = parse_expr("and(true, or(true, false), and(true, true))");
+        if let Single(Bool(b)) = eval_expr(&expr) {
+            assert_eq!(b, true);
+        } else {
+            panic!("Expected single bool");
+        }
+    }
+}
