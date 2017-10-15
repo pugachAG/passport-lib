@@ -20,4 +20,9 @@ pub enum OperatorType {
     List,
 }
 
+fn parse_expr(text: &str) -> RuleExpression {
+    // implement here
+    RuleExpression::Literal(Box::from(LiteralExpression::Str(String::from("kek"))))
+}
+
 mod eval;
