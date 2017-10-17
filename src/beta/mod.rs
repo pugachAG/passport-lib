@@ -1,4 +1,4 @@
-use nom::{digit, alphanumeric, IResult};
+use nom::{digit, IResult};
 use std::str::{self, FromStr};
 
 #[derive(Debug)]
@@ -27,43 +27,49 @@ pub enum OperatorType {
     List,
 }
 
-named!(int <i32>, map_res!(
+named!(int <i32>,
   map_res!(
-    recognize!(
-        many1!(digit)
+    map_res!(
+      digit,
+      str::from_utf8
     ),
-    str::from_utf8
-  ),
-  FromStr::from_str
-));
-
-named!(string<&str>,
-  delimited!(
-    tag!("\""),
-    map_res!(escaped!(call!(alphanumeric), '\\', is_a!("\"n\\")), str::from_utf8),
-    tag!("\"")
+    FromStr::from_str
   )
 );
 
-named!(boolean <bool>, map_res!(
+named!(string <&str>,
   map_res!(
-    recognize!(
-        alt!(
-            tag!("true") |
-            tag!("false")
-        )
+    delimited!(
+      tag!("\""),
+      escaped!(
+        is_not!("\\\""),
+        '\\',
+        one_of!("\\\"")
+      ),
+      tag!("\"")
     ),
     str::from_utf8
-  ),
-  FromStr::from_str
-));
+  )
+);
 
-named!(arg <LiteralExpression>,
+named!(boolean <bool>,
+  map_res!(
+    map_res!(
+      alt!(
+        tag!("true") | tag!("false")
+      ),
+      str::from_utf8
+    ),
+    FromStr::from_str
+  )
+);
+
+named!(literal <LiteralExpression>,
   ws!(
-    alt!(
-      int     => { |i|   LiteralExpression::Num(i) } |
-      string  => { |s|   LiteralExpression::Str(String::from(s)) } |
-      boolean => { |b|   LiteralExpression::Bool(b)      }
+    alt_complete!(
+      int  => { |i| LiteralExpression::Num(i) } |
+      string => { |s| LiteralExpression::Str(String::from(s)) } |
+      boolean => { |b| LiteralExpression::Bool(b) }
     )
   )
 );
@@ -117,7 +123,7 @@ named!(rule_expr <RuleExpression>,
   ws!(
     alt!(
         oper_expr => { |e| RuleExpression::Operator(Box::new(e)) } |
-        arg       => { |e| RuleExpression::Literal(Box::new(e))  }
+        literal => { |e| RuleExpression::Literal(Box::new(e))  }
     )
   )
 );
@@ -150,9 +156,9 @@ mod tests {
 
     #[test]
     fn str_literal() {
-        let expr = parse_expr("\"str\"");
+        let expr = parse_expr("\"str 123!\"");
         if let Single(Str(s)) = eval_expr(&expr) {
-            assert_eq!(s, "str");
+            assert_eq!(s, "str 123!");
         } else {
             panic!("Expected single string");
         }
