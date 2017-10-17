@@ -1,4 +1,4 @@
-use nom::{digit, IResult};
+use nom::{digit, is_alphanumeric, IResult};
 use std::str::{self, FromStr};
 
 #[derive(Debug)]
@@ -65,64 +65,60 @@ named!(boolean <bool>,
 );
 
 named!(literal <LiteralExpression>,
-  ws!(
-    alt_complete!(
-      int  => { |i| LiteralExpression::Num(i) } |
-      string => { |s| LiteralExpression::Str(String::from(s)) } |
-      boolean => { |b| LiteralExpression::Bool(b) }
-    )
+  alt_complete!(
+    int  => { |i| LiteralExpression::Num(i) } |
+    string => { |s| LiteralExpression::Str(String::from(s)) } |
+    boolean => { |b| LiteralExpression::Bool(b) }
   )
 );
 
-named!(and_op <OperatorExpression>,
-  ws!(
-    do_parse!(
-      tag!("and") >>
-      tag!("(") >>
-      args: separated_list!(tag!(","), rule_expr) >>
-      tag!(")") >>
-      (OperatorExpression{ operator_type: OperatorType::And, args: args })
-    )
+fn parse_func_name(name: &str) -> OperatorType {
+    match name {
+        "or" => OperatorType::Or,
+        "and" => OperatorType::And,
+        _ => panic!("Unknown operator {}", name)
+    }
+}
+
+named!(args <Vec<RuleExpression>>,
+  separated_list!(
+    tag!(","),
+    rule_expr
   )
 );
 
-named!(or_op <OperatorExpression>,
-  ws!(
-    do_parse!(
-      tag!("or") >>
-      tag!("(") >>
-      args: separated_list!(tag!(","), rule_expr) >>
-      tag!(")") >>
-      (OperatorExpression{ operator_type: OperatorType::Or, args: args })
-    )
+named!(func <OperatorExpression>,
+  do_parse!(
+    f_name: map_res!(
+      take_while!( |x| is_alphanumeric(x) || x == b'_' ),
+      str::from_utf8
+    ) >>
+    tag!("(") >>
+    f_args: args >>
+    tag!(")") >>
+    (OperatorExpression{ operator_type: parse_func_name(f_name), args: f_args })
   )
 );
 
-named!(list_op <OperatorExpression>,
-  ws!(
-    do_parse!(
-      tag!("[") >>
-      args: separated_list!(tag!(","), rule_expr) >>
-      tag!("]") >>
-      (OperatorExpression{ operator_type: OperatorType::List, args: args })
-    )
+named!(list <OperatorExpression>,
+  do_parse!(
+    tag!("[") >>
+    l_args: args >>
+    tag!("]") >>
+    (OperatorExpression{ operator_type: OperatorType::List, args: l_args })
   )
 );
 
-named!(oper_expr <OperatorExpression>,
-  ws!(
-    alt!(
-      list_op |
-      or_op |
-      and_op
-    )
+named!(operator <OperatorExpression>,
+  alt_complete!(
+    func | list
   )
 );
 
 named!(rule_expr <RuleExpression>,
   ws!(
-    alt!(
-        oper_expr => { |e| RuleExpression::Operator(Box::new(e)) } |
+    alt_complete!(
+        operator => { |e| RuleExpression::Operator(Box::new(e)) } |
         literal => { |e| RuleExpression::Literal(Box::new(e))  }
     )
   )
