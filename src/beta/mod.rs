@@ -72,12 +72,13 @@ named!(literal <LiteralExpression>,
   )
 );
 
-fn parse_func_name(name: &str) -> OperatorType {
-    match name {
+fn parse_func_name(name: &str) -> Result<OperatorType, String> {
+    let op = match name {
         "or" => OperatorType::Or,
         "and" => OperatorType::And,
-        _ => panic!("Unknown operator {}", name)
-    }
+        _ => return Result::Err(String::from(format!("Unknown operator {}", name)))
+    };
+    Result::Ok(op)
 }
 
 named!(args <Vec<RuleExpression>>,
@@ -89,14 +90,17 @@ named!(args <Vec<RuleExpression>>,
 
 named!(func <OperatorExpression>,
   do_parse!(
-    f_name: map_res!(
-      take_while!( |x| is_alphanumeric(x) || x == b'_' ),
-      str::from_utf8
+    op_type: map_res!(
+      map_res!(
+        take_while!( |x| is_alphanumeric(x) || x == b'_' ),
+        str::from_utf8
+      ),
+      parse_func_name
     ) >>
     tag!("(") >>
     f_args: args >>
     tag!(")") >>
-    (OperatorExpression{ operator_type: parse_func_name(f_name), args: f_args })
+    (OperatorExpression{ operator_type: op_type, args: f_args })
   )
 );
 
@@ -127,7 +131,7 @@ named!(rule_expr <RuleExpression>,
 fn parse_expr(text: &str) -> RuleExpression {
     match rule_expr(text.as_bytes()) {
         IResult::Done(_, res) => res,
-        _ => RuleExpression::Literal(Box::new(LiteralExpression::Str(String::from("error"))))
+        _ => panic!("Error parsing")
     }
 }
 
